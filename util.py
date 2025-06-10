@@ -98,7 +98,7 @@ def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name):
         def wrap_words(text):
             if not isinstance(text, str):
                 return text
-            # Переносим только по пробелам, не разбивая слова
+
             return text.replace(' ', '\n')
 
         wb = Workbook()
@@ -195,7 +195,7 @@ def save_global_priorities_to_excel(data, name):
         def wrap_words(text):
             if not isinstance(text, str):
                 return text
-            # Переносим только по пробелам, не разбивая слова
+
             return text.replace(' ', '\n')
 
         wb = Workbook()
