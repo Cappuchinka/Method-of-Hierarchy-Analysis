@@ -79,12 +79,13 @@ def count_global_priorities(p_v_criteria, p_vs_alternatives):
     return priorities
 
 
-def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name):
+def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name, is_alt=None):
     try:
         df = data.copy()
 
         times_new_roman = Font(name='Times New Roman', size=12)
-        alignment = Alignment(wrap_text=True, vertical='center')
+        alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
+        header_alignment = Alignment(wrap_text=True, vertical='center')
 
         def format_value(x):
             if hasattr(x, 'numerator'):
@@ -98,25 +99,27 @@ def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name):
         def wrap_words(text):
             if not isinstance(text, str):
                 return text
-
             return text.replace(' ', '\n')
 
         wb = Workbook()
         ws = wb.active
 
-        ws.cell(row=1, column=1, value="").font = times_new_roman
+        if is_alt is not None:
+            ws.cell(row=1, column=1, value=str(is_alt)).font = times_new_roman
+        else:
+            ws.cell(row=1, column=1, value="").font = times_new_roman
 
         for col_idx, col_name in enumerate(df.columns, 2):
             wrapped_name = wrap_words(str(col_name))
             cell = ws.cell(row=1, column=col_idx, value=wrapped_name)
             cell.font = times_new_roman
-            cell.alignment = alignment
+            cell.alignment = header_alignment
 
         for row_idx, (index, row) in enumerate(df.iterrows(), 2):
             wrapped_index = wrap_words(str(index))
             cell = ws.cell(row=row_idx, column=1, value=wrapped_index)
             cell.font = times_new_roman
-            cell.alignment = alignment
+            cell.alignment = header_alignment
 
             for col_idx, value in enumerate(row, 2):
                 wrapped_value = wrap_words(format_value(value))
@@ -127,19 +130,16 @@ def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name):
         for col in ws.columns:
             max_length = 0
             column = col[0].column_letter
-
             for cell in col:
                 try:
                     if cell.value and '\n' in str(cell.value):
                         line_length = max(len(line) for line in str(cell.value).split('\n'))
                     else:
                         line_length = len(str(cell.value))
-
                     if line_length > max_length:
                         max_length = line_length
                 except:
                     pass
-
             adjusted_width = (max_length + 2) * 1.2
             ws.column_dimensions[column].width = adjusted_width
 
@@ -147,30 +147,28 @@ def save_matrix_paired_comparisons_to_xlsx(data, val_1, val_2, val_3, name):
         start_row = df.shape[0] + 2
 
         thin_border = Border(left=Side(style='thin'),
-                             right=Side(style='thin'),
-                             top=Side(style='thin'),
-                             bottom=Side(style='thin'))
+                           right=Side(style='thin'),
+                           top=Side(style='thin'),
+                           bottom=Side(style='thin'))
 
         ws.merge_cells(start_row=start_row, start_column=1,
-                       end_row=start_row + 2, end_column=last_col - 1)
+                      end_row=start_row + 2, end_column=last_col - 1)
 
         ws.cell(row=start_row, column=1, value="").font = times_new_roman
-
         cell = ws.cell(row=start_row, column=last_col, value=f"λ_max = {val_1:.3f}")
         cell.font = times_new_roman
-        cell.alignment = alignment
+        cell.alignment = Alignment(wrap_text=True, vertical='center')
         cell = ws.cell(row=start_row + 1, column=last_col, value=f"ИС = {val_2:.3f}")
         cell.font = times_new_roman
-        cell.alignment = alignment
+        cell.alignment = Alignment(wrap_text=True, vertical='center')
         cell = ws.cell(row=start_row + 2, column=last_col, value=f"ОС = {val_3:.3f}")
         cell.font = times_new_roman
-        cell.alignment = alignment
+        cell.alignment = Alignment(wrap_text=True, vertical='center')
 
         for row in ws.iter_rows(min_row=1, max_row=start_row + 2, max_col=last_col):
             for cell in row:
                 cell.border = thin_border
                 cell.font = times_new_roman
-                cell.alignment = alignment
 
         os.makedirs("out", exist_ok=True)
         file_path = os.path.join("out", f"{name}.xlsx")
@@ -195,7 +193,6 @@ def save_global_priorities_to_excel(data, name):
         def wrap_words(text):
             if not isinstance(text, str):
                 return text
-
             return text.replace(' ', '\n')
 
         wb = Workbook()
@@ -203,11 +200,13 @@ def save_global_priorities_to_excel(data, name):
         ws.title = "Данные"
 
         font = Font(name='Times New Roman', size=12)
+        bold_font = Font(name='Times New Roman', size=12, bold=True)
         border = Border(left=Side(style='thin'),
-                        right=Side(style='thin'),
-                        top=Side(style='thin'),
-                        bottom=Side(style='thin'))
-        alignment = Alignment(wrap_text=True, vertical='center')
+                       right=Side(style='thin'),
+                       top=Side(style='thin'),
+                       bottom=Side(style='thin'))
+        alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
+        header_alignment = Alignment(wrap_text=True, vertical='center')
 
         def format_value(value):
             try:
@@ -222,21 +221,30 @@ def save_global_priorities_to_excel(data, name):
         cell = ws.cell(row=1, column=1, value="")
         cell.font = font
         cell.border = border
-        cell.alignment = alignment
+        cell.alignment = header_alignment
 
         for col_num, column_name in enumerate(data.columns, 2):
             wrapped_name = wrap_words(str(column_name))
             cell = ws.cell(row=1, column=col_num, value=wrapped_name)
             cell.font = font
             cell.border = border
-            cell.alignment = alignment
+            cell.alignment = header_alignment
+
+        global_priority_col = None
+        for idx, col_name in enumerate(data.columns, 2):
+            if "Глобальные приоритеты" in str(col_name):
+                global_priority_col = idx
+                break
+
+        max_value = None
+        max_row = None
 
         for row_num, (index, row) in enumerate(data.iterrows(), 2):
             wrapped_index = wrap_words(str(index))
             cell = ws.cell(row=row_num, column=1, value=wrapped_index)
             cell.font = font
             cell.border = border
-            cell.alignment = alignment
+            cell.alignment = header_alignment
 
             for col_num, value in enumerate(row, 2):
                 wrapped_value = wrap_words(format_value(value))
@@ -245,22 +253,32 @@ def save_global_priorities_to_excel(data, name):
                 cell.border = border
                 cell.alignment = alignment
 
+                if col_num == global_priority_col:
+                    try:
+                        num_value = float(value)
+                        if max_value is None or num_value > max_value:
+                            max_value = num_value
+                            max_row = row_num
+                    except (ValueError, TypeError):
+                        pass
+
+        if max_row is not None and global_priority_col is not None:
+            max_cell = ws.cell(row=max_row, column=global_priority_col)
+            max_cell.font = bold_font
+
         for col in ws.columns:
             max_length = 0
             col_letter = get_column_letter(col[0].column)
-
             for cell in col:
                 try:
                     if cell.value and '\n' in str(cell.value):
                         line_length = max(len(line) for line in str(cell.value).split('\n'))
                     else:
                         line_length = len(str(cell.value))
-
                     if line_length > max_length:
                         max_length = line_length
                 except:
                     pass
-
             adjusted_width = (max_length + 2) * 1.2
             ws.column_dimensions[col_letter].width = adjusted_width
 
@@ -274,3 +292,4 @@ def save_global_priorities_to_excel(data, name):
     except Exception as e:
         display(Markdown(f"Ошибка при сохранении: {str(e)}"))
         return False
+
